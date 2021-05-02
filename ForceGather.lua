@@ -12,6 +12,7 @@ local thread = {}
 
 local CellArray = {}
 local lastPacketElementId = 0
+local reveiveInteractPacket = false
 
 function move()
     while true do
@@ -31,33 +32,35 @@ function ForceGather()
 
     PacketSubManager("gather", true)
 
-    SortMapComplementary()
+    if not dispatching then
+        --Dump(MAP_COMPLEMENTARY)
 
-    HARVESTABLE_ELEMENTS = TableFilter(HARVESTABLE_ELEMENTS, function(v)
-        return CanGather(v.elementTypeId)
-    end)
+        HARVESTABLE_ELEMENTS = TableFilter(HARVESTABLE_ELEMENTS, function(v)
+            return CanGather(v.elementTypeId)
+        end)
 
-    for _, v in pairs(HARVESTABLE_ELEMENTS) do
-        v.distance = ManhattanDistanceCellId(map:currentCell(), v.cellId)
-    end
-
-    table.sort(HARVESTABLE_ELEMENTS, function(a, b)
-        return a.distance < b.distance
-    end)
-
-    for _, v in pairs(HARVESTABLE_ELEMENTS) do
-        developer:suspendScriptUntilMultiplePackets({ "StatedElementUpdatedMessage", "InteractiveElementUpdatedMessage"}, 1, false)
-        if not v.deleted then
-            global:delay(global:random(tMin, tMax))
-            map:door(v.cellId)
+        for _, v in pairs(HARVESTABLE_ELEMENTS) do
+            v.distance = ManhattanDistanceCellId(map:currentCell(), v.cellId)
         end
-    end
 
-    MAP_COMPLEMENTARY = {}
-    MAP_COMPLEMENTARY.integereractiveElements = {}
-    MAP_COMPLEMENTARY.statedElements = {}
-    HARVESTABLE_ELEMENTS = {}
-    STATED_ELEMENTS = {}
+        table.sort(HARVESTABLE_ELEMENTS, function(a, b)
+            return a.distance < b.distance
+        end)
+
+        for _, v in pairs(HARVESTABLE_ELEMENTS) do
+            developer:suspendScriptUntilMultiplePackets({ "StatedElementUpdatedMessage", "InteractiveElementUpdatedMessage"}, 1, false)
+            if not v.deleted then
+                global:delay(global:random(tMin, tMax))
+                map:door(v.cellId)
+            end
+        end
+
+        MAP_COMPLEMENTARY = {}
+        MAP_COMPLEMENTARY.integereractiveElements = {}
+        MAP_COMPLEMENTARY.statedElements = {}
+        HARVESTABLE_ELEMENTS = {}
+        STATED_ELEMENTS = {}
+    end
 end
 
 function CanGather(gatherId)
@@ -93,11 +96,14 @@ end
 
 function Dispatcher()
     --Print("Start Dispatcher")
+    dispatching = true
     for i = #thread, 1, -1 do
         thread[i]()
     end
     thread = {}
     lastPacketElementId = 0
+    SortMapComplementary()
+    dispatching = false
     --Print("end dispatcher")
 end
 
@@ -169,6 +175,7 @@ end
 
 function CB_InteractiveElementUpdatedMessage(packet)
     --Print("Interac")
+    reveiveInteractPacket = true
     packet = packet.integereractiveElement
     if packet.onCurrentMap then
         if #packet.enabledSkills > 0 then
@@ -215,6 +222,7 @@ function CB_InteractiveElementUpdatedMessage(packet)
             end
         end
     end
+    reveiveInteractPacket = false
 end
 
 -- Cell to X Y
@@ -309,4 +317,19 @@ function TableFilter(tbl, func)
         end
     end
     return newtbl
+end
+
+function Dump(t)
+    local function dmp(t, l, k)
+        if type (t) == "table" then
+            Print(string.format ("% s% s:", string.rep ("", l * 2 ), tostring (k)))
+            for k, v in pairs(t) do
+                dmp(v, l + 1, k)
+            end
+        else
+            Print(string.format ("% s% s:% s", string.rep ( "", l * 2), tostring (k), tostring (t)))
+        end
+    end
+
+    dmp(t, 1, "root")
 end
