@@ -26,6 +26,7 @@ function move()
 end
 
 function bank()
+    PacketSubManager() -- Laissez cette fonction en tête de fonction bank
     Print("La fonction n'est pas inclue au trajet veuillez l'ajoutez", "BANK", "error")
 end
 
