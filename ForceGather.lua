@@ -15,6 +15,8 @@ local lastPacketElementId = 0
 local reveiveInteractPacket = false
 local dispatching = false
 
+local gathering, sortByDist = false, false
+
 local condition = (not dispatching and not reveiveInteractPacket)
 
 function move()
@@ -52,6 +54,8 @@ function ForceGather()
         if #HARVESTABLE_ELEMENTS > 0 and condition then
             --Print("sort by dist")
 
+            sortByDist = true
+
             HARVESTABLE_ELEMENTS = TableFilter(HARVESTABLE_ELEMENTS, function(v)
                 return CanGather(v.elementTypeId)
             end)
@@ -64,6 +68,10 @@ function ForceGather()
                 return a.distance < b.distance
             end)
 
+            sortByDist = false
+
+            gathering = true
+
             for _, v in pairs(HARVESTABLE_ELEMENTS) do
                 developer:suspendScriptUntilMultiplePackets({ "StatedElementUpdatedMessage", "InteractiveElementUpdatedMessage"}, 1, false)
                 if not v.deleted then
@@ -71,6 +79,11 @@ function ForceGather()
                     map:door(v.cellId)
                 end
             end
+
+            gathering = false
+
+            developer:suspendScriptUntilMultiplePackets({ "StatedElementUpdatedMessage", "InteractiveElementUpdatedMessage"}, 1, false)
+
             if condition then
                 MAP_COMPLEMENTARY = {}
                 MAP_COMPLEMENTARY.integereractiveElements = {}
@@ -204,30 +217,35 @@ function CB_InteractiveElementUpdatedMessage(packet)
             for _, v in pairs(STATED_ELEMENTS) do
                 --Print(packet.elementId.."   "..v.elementId)
                 if v.elementId == packet.elementId then
-                    if CanGather(packet.elementTypeId) then
-                        --Print("Repoped elem")
-                        if lastPacketElementId ~= packet.elementId then
-                            lastPacketElementId = packet.elementId
-                            table.insert(InteractiveThread, function()
-                                local elementId = v.elementId
-                                local elementTypeId = packet.elementTypeId
-                                local elementCellId = v.elementCellId
-                                table.insert(MAP_COMPLEMENTARY.statedElements, {
-                                    elementId = elementId,
-                                    elementCellId = elementCellId
-                                })
-                                table.insert(MAP_COMPLEMENTARY.integereractiveElements, {
-                                    elementId = elementId,
-                                    elementTypeId = elementTypeId,
-                                    onCurrentMap = true,
-                                    enabledSkills = {
-                                        { skillInstanceUid = 0 }
-                                    }
-                                })
-                            end)
-                            --developer:suspendScriptUntil("InteractiveElementUpdatedMessage", 0, false)
-                        end
+                    --Print("Repoped elem")
+                    if not gathering and not sortByDist then
+                        lastPacketElementId = packet.elementId
+                        table.insert(InteractiveThread, function()
+                            local elementId = v.elementId
+                            local elementTypeId = packet.elementTypeId
+                            local elementCellId = v.elementCellId
+                            table.insert(MAP_COMPLEMENTARY.statedElements, {
+                                elementId = elementId,
+                                elementCellId = elementCellId
+                            })
+                            table.insert(MAP_COMPLEMENTARY.integereractiveElements, {
+                                elementId = elementId,
+                                elementTypeId = elementTypeId,
+                                onCurrentMap = true,
+                                enabledSkills = {
+                                    { skillInstanceUid = 0 }
+                                }
+                            })
+                        end)
+                        --developer:suspendScriptUntil("InteractiveElementUpdatedMessage", 0, false)
+                    elseif gathering then
+                        local elem = {}
+                        elem.deleted = false
+                        elem.cellId = v.elementCellId
+                        elem.elementId = packet.elementId
+                        table.insert(HARVESTABLE_ELEMENTS, elem)
                     end
+                    break
                 end
             end
         elseif #packet.disabledSkills > 0 then
