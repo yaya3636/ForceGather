@@ -13,6 +13,9 @@ local InteractiveThread = {}
 local CellArray = {}
 local lastPacketElementId = 0
 local reveiveInteractPacket = false
+local dispatching = false
+
+local condition = (not dispatching and not reveiveInteractPacket)
 
 function move()
     while true do
@@ -32,37 +35,44 @@ function ForceGather()
 
     PacketSubManager("gather", true)
 
-    if not dispatching then
+    if condition then
         --Dump(MAP_COMPLEMENTARY)
-        if #InteractiveThread > 1 then
+        if #InteractiveThread > 0 and condition then
             Dispatcher()
         end
+        --Print("Sort mapcomp")
+        SortMapComplementary()
 
-        HARVESTABLE_ELEMENTS = TableFilter(HARVESTABLE_ELEMENTS, function(v)
-            return CanGather(v.elementTypeId)
-        end)
+        if #HARVESTABLE_ELEMENTS > 0 and condition then
+            --Print("sort by dist")
 
-        for _, v in pairs(HARVESTABLE_ELEMENTS) do
-            v.distance = ManhattanDistanceCellId(map:currentCell(), v.cellId)
-        end
+            HARVESTABLE_ELEMENTS = TableFilter(HARVESTABLE_ELEMENTS, function(v)
+                return CanGather(v.elementTypeId)
+            end)
 
-        table.sort(HARVESTABLE_ELEMENTS, function(a, b)
-            return a.distance < b.distance
-        end)
+            for _, v in pairs(HARVESTABLE_ELEMENTS) do
+                v.distance = ManhattanDistanceCellId(map:currentCell(), v.cellId)
+            end
 
-        for _, v in pairs(HARVESTABLE_ELEMENTS) do
-            developer:suspendScriptUntilMultiplePackets({ "StatedElementUpdatedMessage", "InteractiveElementUpdatedMessage"}, 1, false)
-            if not v.deleted then
-                global:delay(global:random(tMin, tMax))
-                map:door(v.cellId)
+            table.sort(HARVESTABLE_ELEMENTS, function(a, b)
+                return a.distance < b.distance
+            end)
+
+            for _, v in pairs(HARVESTABLE_ELEMENTS) do
+                developer:suspendScriptUntilMultiplePackets({ "StatedElementUpdatedMessage", "InteractiveElementUpdatedMessage"}, 1, false)
+                if not v.deleted then
+                    global:delay(global:random(tMin, tMax))
+                    map:door(v.cellId)
+                end
+            end
+            if condition then
+                MAP_COMPLEMENTARY = {}
+                MAP_COMPLEMENTARY.integereractiveElements = {}
+                MAP_COMPLEMENTARY.statedElements = {}
+                HARVESTABLE_ELEMENTS = {}
+                STATED_ELEMENTS = {}
             end
         end
-
-        MAP_COMPLEMENTARY = {}
-        MAP_COMPLEMENTARY.integereractiveElements = {}
-        MAP_COMPLEMENTARY.statedElements = {}
-        HARVESTABLE_ELEMENTS = {}
-        STATED_ELEMENTS = {}
     end
 end
 
@@ -99,6 +109,7 @@ end
 
 function Dispatcher()
     --Print("Start Dispatcher")
+    dispatching = true
     dispatching = true
     for _, v in pairs(InteractiveThread) do
         v()
@@ -177,18 +188,18 @@ function CB_StatedElementUpdatedMessage(packet)
 end
 
 function CB_InteractiveElementUpdatedMessage(packet)
-    Print("Interac")
-    SetVar(reveiveInteractPacket, true)
+    --Print("Interac")
+    reveiveInteractPacket = true
     packet = packet.integereractiveElement
     if packet.onCurrentMap then
-        Print("Check pop depop")
+        --Print("Check pop depop")
         if #packet.enabledSkills > 0 then
-            Print("Repop")
+            --Print("Repop")
             for _, v in pairs(STATED_ELEMENTS) do
-                Print(packet.elementId.."   "..v.elementId)
+                --Print(packet.elementId.."   "..v.elementId)
                 if v.elementId == packet.elementId then
                     if CanGather(packet.elementTypeId) then
-                        Print("Repoped elem")
+                        --Print("Repoped elem")
                         if lastPacketElementId ~= packet.elementId then
                             lastPacketElementId = packet.elementId
                             table.insert(InteractiveThread, function()
@@ -208,27 +219,23 @@ function CB_InteractiveElementUpdatedMessage(packet)
                                     }
                                 })
                             end)
-                            developer:suspendScriptUntil("InteractiveElementUpdatedMessage", 0, false)
+                            --developer:suspendScriptUntil("InteractiveElementUpdatedMessage", 0, false)
                         end
                     end
                 end
             end
         elseif #packet.disabledSkills > 0 then
-            Print('depop')
+            --Print('depop')
             for _, v in pairs(HARVESTABLE_ELEMENTS) do
                 if v ~= nil and v.elementId == packet.elementId then
-                    Print("deleted")
+                    --Print("deleted")
                     v.deleted = true
                     break
                 end
             end
         end
     end
-    SetVar(reveiveInteractPacket, false)
-end
-
-function SetVar(var, value)
-    var = value
+    reveiveInteractPacket = false
 end
 
 -- Cell to X Y
