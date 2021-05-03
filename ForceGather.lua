@@ -2,22 +2,23 @@ GATHER = {38}
 
 local tMin, tMax = 250, 500 -- Delais aléatoire entre les récolte, choisie entre tMin et tMax
 
+-- Script var
+
 local MAP_COMPLEMENTARY = {}
 MAP_COMPLEMENTARY.integereractiveElements = {}
 MAP_COMPLEMENTARY.statedElements = {}
-
 local STATED_ELEMENTS = {}
 local HARVESTABLE_ELEMENTS = {}
+
 local InteractiveThread = {}
-
 local CellArray = {}
-local lastPacketElementId = 0
-local reveiveInteractPacket = false
-local dispatching = false
 
+local reveiveInteractPacket, dispatching = false, false
 local gathering, sortByDist = false, false
 
 local condition = (not dispatching and not reveiveInteractPacket)
+
+-- Ankabot main func
 
 function move()
     while true do
@@ -35,7 +36,7 @@ function stopped()
     PacketSubManager()
 end
 
--- Logic Gather
+-- Logic ForceGather
 
 function ForceGather()
     developer:suspendScriptUntilMultiplePackets({ "StatedElementUpdatedMessage", "InteractiveElementUpdatedMessage"}, 1, false)
@@ -229,7 +230,6 @@ function CB_InteractiveElementUpdatedMessage(packet)
                 if v.elementId == packet.elementId then
                     --Print("Repoped elem")
                     if not gathering and not sortByDist then
-                        lastPacketElementId = packet.elementId
                         table.insert(InteractiveThread, function()
                             local elementId = v.elementId
                             local elementTypeId = packet.elementTypeId
