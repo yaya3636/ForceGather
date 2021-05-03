@@ -36,12 +36,18 @@ function ForceGather()
     PacketSubManager("gather", true)
 
     if condition then
+        developer:suspendScriptUntilMultiplePackets({ "StatedElementUpdatedMessage", "InteractiveElementUpdatedMessage"}, 1, false)
         --Dump(MAP_COMPLEMENTARY)
         if #InteractiveThread > 0 and condition then
             Dispatcher()
         end
-        --Print("Sort mapcomp")
-        SortMapComplementary()
+
+        if condition then
+            --Print("Sort mapcomp")
+            SortMapComplementary()
+        end
+
+        developer:suspendScriptUntilMultiplePackets({ "StatedElementUpdatedMessage", "InteractiveElementUpdatedMessage"}, 1, false)
 
         if #HARVESTABLE_ELEMENTS > 0 and condition then
             --Print("sort by dist")
