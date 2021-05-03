@@ -25,6 +25,15 @@ function move()
     end
 end
 
+function bank()
+    Print("La fonction n'est pas inclue au trajet veuillez l'ajoutez", "BANK", "error")
+end
+
+function stopped()
+    Print("Arrêt du script")
+    PacketSubManager()
+end
+
 -- Logic Gather
 
 function ForceGather()
