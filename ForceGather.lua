@@ -8,7 +8,7 @@ MAP_COMPLEMENTARY.statedElements = {}
 
 local STATED_ELEMENTS = {}
 local HARVESTABLE_ELEMENTS = {}
-local thread = {}
+local InteractiveThread = {}
 
 local CellArray = {}
 local lastPacketElementId = 0
@@ -34,6 +34,9 @@ function ForceGather()
 
     if not dispatching then
         --Dump(MAP_COMPLEMENTARY)
+        if #InteractiveThread > 1 then
+            Dispatcher()
+        end
 
         HARVESTABLE_ELEMENTS = TableFilter(HARVESTABLE_ELEMENTS, function(v)
             return CanGather(v.elementTypeId)
@@ -83,7 +86,7 @@ function SortMapComplementary()
                         elem.cellId = vStated.elementCellId
                         elem.elementTypeId = vIntegeractive.elementTypeId
                         elem.elementId = vIntegeractive.elementId
-                        if #vIntegeractive.enabledSkills > 0 then
+                        if type(vIntegeractive.enabledSkills) == "boolean" or #vIntegeractive.enabledSkills > 0 then
                             elem.skillInstanceUid = vIntegeractive.enabledSkills[1].skillInstanceUid
                             table.insert(HARVESTABLE_ELEMENTS, elem)
                         end
@@ -97,10 +100,10 @@ end
 function Dispatcher()
     --Print("Start Dispatcher")
     dispatching = true
-    for i = #thread, 1, -1 do
-        thread[i]()
+    for _, v in pairs(InteractiveThread) do
+        v()
     end
-    thread = {}
+    InteractiveThread = {}
     lastPacketElementId = 0
     SortMapComplementary()
     dispatching = false
@@ -174,20 +177,21 @@ function CB_StatedElementUpdatedMessage(packet)
 end
 
 function CB_InteractiveElementUpdatedMessage(packet)
-    --Print("Interac")
-    reveiveInteractPacket = true
+    Print("Interac")
+    SetVar(reveiveInteractPacket, true)
     packet = packet.integereractiveElement
     if packet.onCurrentMap then
+        Print("Check pop depop")
         if #packet.enabledSkills > 0 then
-            --Print("Repop")
+            Print("Repop")
             for _, v in pairs(STATED_ELEMENTS) do
-                --Print(packet.elementId.."   "..v.elementId)
+                Print(packet.elementId.."   "..v.elementId)
                 if v.elementId == packet.elementId then
                     if CanGather(packet.elementTypeId) then
-                        --Print("Repoped elem")
+                        Print("Repoped elem")
                         if lastPacketElementId ~= packet.elementId then
                             lastPacketElementId = packet.elementId
-                            table.insert(thread, function()
+                            table.insert(InteractiveThread, function()
                                 local elementId = v.elementId
                                 local elementTypeId = packet.elementTypeId
                                 local elementCellId = v.elementCellId
@@ -205,24 +209,26 @@ function CB_InteractiveElementUpdatedMessage(packet)
                                 })
                             end)
                             developer:suspendScriptUntil("InteractiveElementUpdatedMessage", 0, false)
-                            if #thread > 0 then
-                                Dispatcher()
-                            end
                         end
                     end
                 end
             end
         elseif #packet.disabledSkills > 0 then
-            for i = #HARVESTABLE_ELEMENTS, 1, -1 do
-                if HARVESTABLE_ELEMENTS[i].elementId == packet.elementId then
-                    --Print("deleted")
-                    HARVESTABLE_ELEMENTS[i].deleted = true
+            Print('depop')
+            for _, v in pairs(HARVESTABLE_ELEMENTS) do
+                if v ~= nil and v.elementId == packet.elementId then
+                    Print("deleted")
+                    v.deleted = true
                     break
                 end
             end
         end
     end
-    reveiveInteractPacket = false
+    SetVar(reveiveInteractPacket, false)
+end
+
+function SetVar(var, value)
+    var = value
 end
 
 -- Cell to X Y
